@@ -21,3 +21,6 @@ huggingface-cache/
 *.gguf
 .idea/
 .vscode/
+
+# writers room build output — reproducible from the notes
+room/_build/
