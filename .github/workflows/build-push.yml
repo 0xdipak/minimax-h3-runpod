@@ -1,0 +1,65 @@
+name: Build and push worker image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "requirements.txt"
+      - "handler.py"
+      - "h3_pipeline.py"
+      - "cost.py"
+      - "upload.py"
+      - "upscale.py"
+      - "test_input.json"
+      - ".github/workflows/build-push.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/ruizmr/minimax-h3-runpod
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Make package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Best-effort: public package so Runpod can pull without registry auth.
+          gh api --method PUT \
+            "/user/packages/container/minimax-h3-runpod/visibility" \
+            -f visibility=public || true
+          gh api --method PATCH \
+            "/user/packages/container/minimax-h3-runpod" \
+            -f visibility=public || true

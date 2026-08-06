@@ -1,20 +1,20 @@
-# Runtime (versions pinned for reproducible worker images)
+# Runtime pins for reproducible worker images.
+# Transitive pins are left flexible so they resolve against diffusers main.
 runpod==1.11.0
 boto3==1.43.66
 torchao==0.18.0
 transformers==5.14.1
 accelerate==1.10.1
-safetensors==0.6.2
-sentencepiece==0.2.1
-protobuf==6.32.0
-huggingface_hub==1.26.1
-numpy==2.2.6
-Pillow==11.3.0
-opencv-python-headless==4.12.0.88
-av==15.0.0
-einops==0.8.1
-regex==2025.7.34
-tqdm==4.67.1
+safetensors>=0.8.0
+sentencepiece>=0.2.1
+protobuf>=5.0
+huggingface_hub>=1.23.0,<2.0
+numpy>=1.26
+Pillow>=10.0
+opencv-python-headless>=4.10
+av>=14.0
+einops>=0.8
+regex>=2025.10.22
+tqdm>=4.66
 # MiniMax-H3 ModularPipeline lives on diffusers main (not yet in a PyPI release).
-# Pin to a known-good commit SHA.
 diffusers @ git+https://github.com/huggingface/diffusers.git@9c6a68c32b3b2a64db91800b624d33cec6e25ab8
