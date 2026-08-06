@@ -1,0 +1,10 @@
+{
+  "input": {
+    "prompt": "Vertical TikTok product ad, 9:16. A young creator holds a matte black water bottle on a sunny rooftop. Shot 1 (0-3s): quick push-in, city bokeh behind, upbeat lo-fi beat. Shot 2 (3-7s): bottle twists open, crisp pour SFX, soft smile to camera. Shot 3 (7-10s): hold product label centered, energetic whoosh transition, natural lighting only.",
+    "duration": 10,
+    "aspect_ratio": "9:16",
+    "resolution_preset": "draft",
+    "seed": 42,
+    "upscale": true
+  }
+}

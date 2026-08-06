@@ -1,0 +1,11 @@
+{
+  "9:16": {
+    "draft": {"width": 544, "height": 960},
+    "720p": {"width": 720, "height": 1280},
+    "native": {"width": 768, "height": 1344}
+  },
+  "tiktok_output": {"width": 1080, "height": 1920},
+  "fps": 24,
+  "frame_grid": "17n+5",
+  "default_steps": 20
+}

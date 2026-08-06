@@ -1,0 +1,16 @@
+.git
+.env
+.venv
+venv
+__pycache__
+*.pyc
+*.mp4
+outputs
+docs
+*.md
+.claude
+.cursor
+benchmark.py
+burst.py
+client.py
+workflows
