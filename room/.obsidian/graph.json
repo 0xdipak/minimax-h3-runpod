@@ -1,0 +1,30 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    { "query": "path:05-Network",          "color": { "a": 1, "rgb": 15790320 } },
+    { "query": "file:(Night Shift Supply)", "color": { "a": 1, "rgb": 16755200 } },
+    { "query": "path:Canon/Characters",     "color": { "a": 1, "rgb": 5025616  } },
+    { "query": "path:Canon/Locations",      "color": { "a": 1, "rgb": 3502490  } },
+    { "query": "path:Canon/Props",          "color": { "a": 1, "rgb": 13369395 } },
+    { "query": "path:Series",               "color": { "a": 1, "rgb": 16744319 } },
+    { "query": "path:Episodes",             "color": { "a": 1, "rgb": 8421504  } },
+    { "query": "path:00-System",            "color": { "a": 1, "rgb": 4210752  } }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": -0.5,
+  "nodeSizeMultiplier": 1.2,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.4,
+  "repelStrength": 11,
+  "linkStrength": 0.8,
+  "linkDistance": 180,
+  "scale": 0.7
+}
