@@ -1,11 +1,12 @@
 # linux/amd64 CUDA worker for MiniMax H3 on Runpod Serverless
 FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
 
+# HF cache prefers a network volume when mounted; handler/entrypoint can override.
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    HF_HOME=/runpod-volume/huggingface-cache \
-    TRANSFORMERS_CACHE=/runpod-volume/huggingface-cache \
+    HF_HOME=/opt/h3-data/huggingface-cache \
+    HUGGINGFACE_HUB_CACHE=/opt/h3-data/huggingface-cache \
     OUTPUT_DIR=/tmp/h3_outputs \
     H3_EAGER_LOAD=1 \
     H3_MEMORY_MODE=auto
@@ -32,6 +33,6 @@ COPY test_input.json /app/test_input.json
 # Endpoint Model field: MiniMaxAI/MiniMax-H3
 # Resolved at runtime via /runpod-volume/huggingface-cache/hub/...
 
-RUN mkdir -p /tmp/h3_outputs
+RUN mkdir -p /tmp/h3_outputs /opt/h3-data/huggingface-cache
 
 CMD ["python", "-u", "handler.py"]

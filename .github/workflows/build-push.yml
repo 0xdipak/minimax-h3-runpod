@@ -1,10 +1,15 @@
 name: Build and push worker image
 
+# Build happens on GitHub's network (pulls pytorch + pip deps there).
+# No local multi-GB upload required. Prefer Runpod "Import Git Repository"
+# in the console for the same idea on Runpod's builders.
+
 on:
   push:
     branches: [main]
     paths:
       - "Dockerfile"
+      - ".dockerignore"
       - "requirements.txt"
       - "handler.py"
       - "h3_pipeline.py"
@@ -16,11 +21,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
-  IMAGE: ghcr.io/ruizmr/minimax-h3-runpod
+  GHCR_IMAGE: ghcr.io/ruizmr/minimax-h3-runpod
+  # Public anonymous registry so Runpod can pull without GHCR auth.
+  # 7-day TTL; re-run this workflow to refresh.
+  PUBLIC_IMAGE: ttl.sh/ruizmr-minimax-h3-runpod:7d
 
 jobs:
   build:
@@ -47,19 +55,47 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.GHCR_IMAGE }}:latest
+            ${{ env.GHCR_IMAGE }}:${{ github.sha }}
+            ${{ env.PUBLIC_IMAGE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Make package public
+      - name: Make GHCR package public
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Best-effort: public package so Runpod can pull without registry auth.
+          # Best-effort; first-time public packages may need a one-click UI accept.
           gh api --method PUT \
             "/user/packages/container/minimax-h3-runpod/visibility" \
             -f visibility=public || true
-          gh api --method PATCH \
-            "/user/packages/container/minimax-h3-runpod" \
-            -f visibility=public || true
+
+      - name: Record public image URL
+        run: |
+          mkdir -p docs
+          {
+            echo "# Worker image (CI-built, public pull)"
+            echo
+            echo "Built by GitHub Actions — layers pulled on GitHub's network, not from a laptop."
+            echo
+            echo "| Registry | Image |"
+            echo "|---|---|"
+            echo "| Public (ttl.sh, 7d) | \`${{ env.PUBLIC_IMAGE }}\` |"
+            echo "| GHCR | \`${{ env.GHCR_IMAGE }}:latest\` |"
+            echo
+            echo "SHA: \`${{ github.sha }}\`"
+            echo
+            echo "Point the Runpod template \`imageName\` at the public ttl.sh tag (or make GHCR public)."
+            echo "Preferred long-term: console **Import Git Repository** so Runpod builds from this Dockerfile."
+          } > docs/worker_image.md
+
+      - name: Commit image pointer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/worker_image.md
+          git diff --cached --quiet && echo "No image pointer change" && exit 0
+          git commit -m "ci: refresh public worker image pointer"
+          git push

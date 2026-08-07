@@ -75,23 +75,42 @@ python -u handler.py  # picks up test_input.json when RUNPOD_LOCAL_TEST patterns
 | `num_inference_steps` | no | default `20` |
 | `jobs` | no | optional list of the above; runs sequentially on one warm worker |
 
-## Build & push worker image
+## Build the worker image (remote — do not upload from your laptop)
 
-Preferred production image (baked deps):
+Layers (`pytorch` base + `pip`) should be pulled on a fast builder, not pushed from a home connection.
+
+### Option A (preferred): Runpod builds from GitHub
+
+1. Runpod console → **Settings → Connections → GitHub** → authorize this repo
+2. **Serverless → New Endpoint → Import Git Repository** → `ruizmr/minimax-h3-runpod`
+3. Branch `main`, Dockerfile path `Dockerfile`
+4. Runpod pulls the base image + deps on their network, stores the image in their registry, and deploys
+
+Updates: create a GitHub **Release** to rebuild (per Runpod’s GitHub integration).
+
+### Option B: GitHub Actions builds + public pull URL
+
+`.github/workflows/build-push.yml` builds on `ubuntu-latest` and pushes:
+
+| Registry | Image |
+|---|---|
+| Public (ttl.sh, 7-day TTL) | `ttl.sh/ruizmr-minimax-h3-runpod:7d` |
+| GHCR (may be private until you flip visibility) | `ghcr.io/ruizmr/minimax-h3-runpod:latest` |
 
 ```bash
-# amd64 (required for Runpod GPU hosts)
-podman build --platform linux/amd64 -t ghcr.io/YOUR_USER/minimax-h3-runpod:latest .
-podman push ghcr.io/YOUR_USER/minimax-h3-runpod:latest
-# Make the GHCR package **public** (Package settings → Change visibility),
-# or register GHCR credentials on the Runpod endpoint.
+gh workflow run build-push.yml
+# then point the Runpod template imageName at the public tag above
 ```
 
-CI: `.github/workflows/build-push.yml` builds `ghcr.io/ruizmr/minimax-h3-runpod:latest`.
+See `docs/worker_image.md` after CI runs.
 
-**Bootstrap deploy (no private registry):** use public `pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime` with `scripts/worker_entrypoint.sh` as the container start command (clones this repo, installs deps, runs `handler.py`). Slower cold starts; switch to the baked image once GHCR is public.
+### Option C: bootstrap (runtime install)
+
+Public `pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime` + `scripts/worker_entrypoint.sh` (clone + pip on the worker). Slow cold starts; fine as a fallback.
 
 **Do not bake weights into the image.** Prefer Runpod **cached models** (`MiniMaxAI/MiniMax-H3`) so download time is not billed.
+
+Writers-room / brand / canon trees (`room/`, `10-Brand/`, `20-Canon/`) stay in the repo for prompt generation; `.dockerignore` keeps them out of the GPU image.
 
 ## Deployed endpoint (bootstrap)
 
