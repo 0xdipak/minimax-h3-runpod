@@ -1,0 +1,34 @@
+name: Publish GHCR package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make container package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -x
+          # List packages visible to this token
+          gh api "/user/packages?package_type=container" || true
+          gh api "/users/ruizmr/packages?package_type=container" || true
+
+          # Try known endpoints for visibility
+          for path in \
+            "/user/packages/container/minimax-h3-runpod/visibility" \
+            "/users/ruizmr/packages/container/minimax-h3-runpod/visibility"
+          do
+            echo "Trying PUT $path"
+            gh api --method PUT "$path" -f visibility=public && exit 0 || true
+          done
+
+          # Fallback: package settings via versions metadata
+          gh api "/user/packages/container/minimax-h3-runpod" || true
+          exit 1
