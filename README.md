@@ -112,25 +112,22 @@ Public `pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime` + `scripts/worker_entrypo
 
 Writers-room / brand / canon trees (`room/`, `10-Brand/`, `20-Canon/`) stay in the repo for prompt generation; `.dockerignore` keeps them out of the GPU image.
 
-## Deployed endpoint (bootstrap)
+## Airing (distribution)
 
-| Field | Value |
-|---|---|
-| Endpoint ID | `obwhejrcoighto` |
-| Type | Queue-based Flex |
-| Image | `pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime` + `scripts/worker_entrypoint.sh` |
-| GPU priority | L40S / RTX 6000 Ada / L40 → A100 |
-| Active workers | 0 |
-| Max workers | 2 |
-| Idle timeout | 120s |
-| Execution timeout | 3600s |
-| FlashBoot | on |
+The `distribute/` package is the carriage layer: Assembly MCP + Codex stitch episodes, a human curator approves final cuts, Postiz posts to same-name channel accounts (TikTok / Instagram / YouTube). See [`distribute/README.md`](distribute/README.md) and [`room/00-System/Network-Ops.md`](room/00-System/Network-Ops.md).
 
-```bash
-export RUNPOD_ENDPOINT_ID=obwhejrcoighto
-python client.py --input test_input.json
-```
+## Deployed endpoint
 
+Prefer `python scripts/deploy_stable_endpoint.py` which creates:
+
+- A **network volume** for Hugging Face weights (`/runpod-volume/huggingface-cache`)
+- A Queue endpoint with **no Runpod cached-model slot** (that feature corrupted an earlier endpoint)
+- `workersMax=1` and a long idle timeout for the first successful cold download
+- `H3_EAGER_LOAD=0` so workers register with the queue before loading weights
+
+**Do not** pause or delete the endpoint while the first job is downloading the model. That cancels the job and wastes the download.
+
+**Do not** attach a Runpod console “cached model” to this endpoint; use the network volume + `HF_TOKEN` instead.
 ## Exact Runpod endpoint configuration
 
 Console: [Serverless → New Endpoint → Docker](https://www.console.runpod.io/serverless)

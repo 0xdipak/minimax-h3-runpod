@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import time
 import traceback
+from pathlib import Path
 from typing import Any
 
 import runpod
@@ -25,6 +26,33 @@ from upscale import UpscaleError, upscale_to_tiktok
 _WORKER_STARTED_AT = time.perf_counter()
 _FIRST_REQUEST = True
 _MODEL_INIT_AT_LOAD = 0.0
+
+
+def _configure_hf_cache() -> None:
+    """Prefer network volume cache; fall back to local container disk."""
+    for candidate in (
+        "/runpod-volume/huggingface-cache",
+        "/opt/h3-data/huggingface-cache",
+        os.environ.get("HF_HOME") or "",
+    ):
+        if not candidate:
+            continue
+        root = Path(candidate)
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            probe = root / ".write_test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            os.environ["HF_HOME"] = str(root)
+            os.environ["HUGGINGFACE_HUB_CACHE"] = str(root)
+            os.environ["TRANSFORMERS_CACHE"] = str(root)
+            print(f"[handler] HF cache -> {root}", flush=True)
+            return
+        except OSError as exc:
+            print(f"[handler] HF cache unusable at {root}: {exc}", flush=True)
+
+
+_configure_hf_cache()
 
 
 def _as_bool(value: Any, default: bool) -> bool:
@@ -221,17 +249,39 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-# Eager load when not in local-test-only mode. Runpod workers benefit from
-# loading during container start so the first billed request is warmer.
-if os.environ.get("H3_EAGER_LOAD", "1") == "1" and os.environ.get("RUNPOD_LOCAL_TEST") != "1":
-    try:
-        print("[handler] eager model load starting")
-        load_pipeline()
-        _MODEL_INIT_AT_LOAD = MODEL_INIT_SECONDS
-        print(f"[handler] eager model load done ({MODEL_INIT_SECONDS:.1f}s)")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[handler] eager load deferred (will retry on first job): {exc}")
+def _start_background_eager_load() -> None:
+    """Optionally warm the model without blocking queue registration.
+
+    Default is off. When enabled, load runs in a daemon thread so
+    ``runpod.serverless.start`` can accept jobs immediately. Otherwise
+    workers appear ready while stuck downloading H3 and jobs sit in queue.
+    """
+    if os.environ.get("H3_EAGER_LOAD", "0") != "1":
+        return
+    if os.environ.get("RUNPOD_LOCAL_TEST") == "1":
+        return
+
+    import threading
+
+    def _bg() -> None:
+        global _MODEL_INIT_AT_LOAD
+        try:
+            print("[handler] background eager model load starting", flush=True)
+            load_pipeline()
+            _MODEL_INIT_AT_LOAD = MODEL_INIT_SECONDS
+            print(
+                f"[handler] background eager model load done ({MODEL_INIT_SECONDS:.1f}s)",
+                flush=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[handler] background eager load failed (will retry on first job): {exc}",
+                flush=True,
+            )
+
+    threading.Thread(target=_bg, name="h3-eager-load", daemon=True).start()
 
 
 if __name__ == "__main__":
+    _start_background_eager_load()
     runpod.serverless.start({"handler": handler})
