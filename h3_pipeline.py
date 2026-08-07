@@ -175,11 +175,13 @@ def load_pipeline() -> Any:
     if memory_mode == "a100_bf16_offload":
         from diffusers import ComponentsManager
 
+        # Official recipe: keep all workflows on the pipeline; select components
+        # via load_components(workflow=...). Passing workflow= to from_pretrained
+        # prunes to SequentialPipelineBlocks without a workflow map.
         manager = ComponentsManager()
         pipe = ModularPipeline.from_pretrained(
             model_path,
             components_manager=manager,
-            workflow="t2va",
         )
         pipe.load_components(workflow="t2va", dtype=torch.bfloat16)
         manager.enable_auto_cpu_offload(
