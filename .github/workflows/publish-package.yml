@@ -2,6 +2,9 @@ name: Publish GHCR package
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and push worker image"]
+    types: [completed]
 
 permissions:
   packages: write
@@ -9,26 +12,23 @@ permissions:
 
 jobs:
   publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Make container package public
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -x
-          # List packages visible to this token
-          gh api "/user/packages?package_type=container" || true
-          gh api "/users/ruizmr/packages?package_type=container" || true
+          set -euo pipefail
+          PKG=minimax-h3-runpod
 
-          # Try known endpoints for visibility
-          for path in \
-            "/user/packages/container/minimax-h3-runpod/visibility" \
-            "/users/ruizmr/packages/container/minimax-h3-runpod/visibility"
-          do
-            echo "Trying PUT $path"
-            gh api --method PUT "$path" -f visibility=public && exit 0 || true
-          done
+          echo "Package before:"
+          gh api "/user/packages/container/$PKG"
 
-          # Fallback: package settings via versions metadata
-          gh api "/user/packages/container/minimax-h3-runpod" || true
-          exit 1
+          # REST: JSON body (form -f fails with 404 on this endpoint)
+          echo '{"visibility":"public"}' | gh api --method PUT \
+            "/user/packages/container/$PKG/visibility" \
+            --input -
+
+          echo "Package after:"
+          gh api "/user/packages/container/$PKG" --jq '{name,visibility,html_url}'
