@@ -128,7 +128,12 @@ def detect_memory_mode() -> str:
             return "int8_group_offload"
         props = torch.cuda.get_device_properties(0)
         vram_gb = props.total_memory / (1024**3)
-        if vram_gb >= 70:
+        # BF16 ComponentsManager offload needs ~120GB+ host RAM for TE+DiT and
+        # still OOMs on A100 when both fight for VRAM. Prefer int8 group-offload
+        # unless explicitly overridden — matches the documented 24–48GB recipe
+        # that community runs successfully.
+        prefer_bf16 = os.environ.get("H3_PREFER_BF16_OFFLOAD", "0") == "1"
+        if prefer_bf16 and vram_gb >= 70:
             return "a100_bf16_offload"
         return "int8_group_offload"
     except Exception:  # noqa: BLE001
@@ -240,15 +245,30 @@ def load_pipeline() -> Any:
         pipe.load_components(workflow="t2va", dtype=torch.bfloat16)
         pipe.transformer.requires_grad_(False)
         pipe.text_encoder.requires_grad_(False)
+        # Streamed group-offload (use_stream=True) can roughly double host RAM
+        # via pinned prefetch buffers — common OOM cause on ~100GB serverless
+        # hosts (HF forum / Diffusers memory guide). Default off.
+        use_stream = os.environ.get("H3_OFFLOAD_USE_STREAM", "0") == "1"
         offload = dict(
             onload_device=torch.device("cuda"),
             offload_device=torch.device("cpu"),
-            use_stream=True,
+            use_stream=use_stream,
         )
+        # low_cpu_mem_usage avoids pre-pinning the whole model in host RAM.
+        group_kwargs = {**offload}
+        try:
+            import inspect
+
+            if "low_cpu_mem_usage" in inspect.signature(
+                pipe.transformer.enable_group_offload
+            ).parameters:
+                group_kwargs["low_cpu_mem_usage"] = True
+        except Exception:  # noqa: BLE001
+            pass
         pipe.transformer.enable_group_offload(
             offload_type="block_level",
             num_blocks_per_group=int(os.environ.get("H3_OFFLOAD_BLOCKS", "1")),
-            **offload,
+            **group_kwargs,
         )
         apply_group_offloading(pipe.text_encoder.model, offload_type="leaf_level", **offload)
         pipe.vae.to("cuda")
