@@ -77,17 +77,40 @@ python -u handler.py  # picks up test_input.json when RUNPOD_LOCAL_TEST patterns
 
 ## Build & push worker image
 
+Preferred production image (baked deps):
+
 ```bash
 # amd64 (required for Runpod GPU hosts)
-podman build --platform linux/amd64 -t YOUR_DOCKERHUB_USER/minimax-h3-runpod:latest .
-podman push YOUR_DOCKERHUB_USER/minimax-h3-runpod:latest
-
-# docker equivalent:
-# docker build --platform linux/amd64 -t YOUR_DOCKERHUB_USER/minimax-h3-runpod:latest .
-# docker push YOUR_DOCKERHUB_USER/minimax-h3-runpod:latest
+podman build --platform linux/amd64 -t ghcr.io/YOUR_USER/minimax-h3-runpod:latest .
+podman push ghcr.io/YOUR_USER/minimax-h3-runpod:latest
+# Make the GHCR package **public** (Package settings → Change visibility),
+# or register GHCR credentials on the Runpod endpoint.
 ```
 
-**Do not bake weights into the image.** Use Runpod **cached models** (`MiniMaxAI/MiniMax-H3`) so download time is not billed.
+CI: `.github/workflows/build-push.yml` builds `ghcr.io/ruizmr/minimax-h3-runpod:latest`.
+
+**Bootstrap deploy (no private registry):** use public `pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime` with `scripts/worker_entrypoint.sh` as the container start command (clones this repo, installs deps, runs `handler.py`). Slower cold starts; switch to the baked image once GHCR is public.
+
+**Do not bake weights into the image.** Prefer Runpod **cached models** (`MiniMaxAI/MiniMax-H3`) so download time is not billed.
+
+## Deployed endpoint (bootstrap)
+
+| Field | Value |
+|---|---|
+| Endpoint ID | `obwhejrcoighto` |
+| Type | Queue-based Flex |
+| Image | `pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime` + `scripts/worker_entrypoint.sh` |
+| GPU priority | L40S / RTX 6000 Ada / L40 → A100 |
+| Active workers | 0 |
+| Max workers | 2 |
+| Idle timeout | 120s |
+| Execution timeout | 3600s |
+| FlashBoot | on |
+
+```bash
+export RUNPOD_ENDPOINT_ID=obwhejrcoighto
+python client.py --input test_input.json
+```
 
 ## Exact Runpod endpoint configuration
 
