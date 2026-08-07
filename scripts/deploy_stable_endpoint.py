@@ -4,7 +4,7 @@
 Design goals vs the broken earlier setup:
 - Never attach Runpod "cached models" (that slot corrupted the prior endpoint).
 - Attach a network volume for Hugging Face weights at /runpod-volume.
-- workersMax=1 for the first successful generation (avoid parallel cold downloads).
+- workersMax defaults to 3 for throughput; network volume shares HF weights across workers.
 - H3_EAGER_LOAD=0 so the worker registers with the queue before loading weights.
 - Long idle timeout so the warm model survives a second test prompt.
 """
@@ -69,7 +69,7 @@ def main() -> int:
     )
     dc = os.environ.get("H3_DATACENTER_ID", "US-KS-2")
     volume_gb = int(os.environ.get("H3_NETWORK_VOLUME_GB", "200"))
-    workers_max = int(os.environ.get("H3_WORKERS_MAX", "1"))
+    workers_max = int(os.environ.get("H3_WORKERS_MAX", "3"))
 
     # Reuse an existing volume with the same name if present.
     volumes = api("GET", "https://rest.runpod.io/v1/networkvolumes")

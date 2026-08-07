@@ -122,12 +122,14 @@ Prefer `python scripts/deploy_stable_endpoint.py` which creates:
 
 - A **network volume** for Hugging Face weights (`/runpod-volume/huggingface-cache`)
 - A Queue endpoint with **no Runpod cached-model slot** (that feature corrupted an earlier endpoint)
-- `workersMax=1` and a long idle timeout for the first successful cold download
+- `workersMax` default **3** for throughput (HF weights shared via the network volume)
 - `H3_EAGER_LOAD=0` so workers register with the queue before loading weights
 
 **Do not** pause or delete the endpoint while the first job is downloading the model. That cancels the job and wastes the download.
 
 **Do not** attach a Runpod console “cached model” to this endpoint; use the network volume + `HF_TOKEN` instead.
+
+Current stable endpoint ID is in `.env` as `RUNPOD_ENDPOINT_ID` (recreated if the previous one was deleted).
 ## Exact Runpod endpoint configuration
 
 Console: [Serverless → New Endpoint → Docker](https://www.console.runpod.io/serverless)
