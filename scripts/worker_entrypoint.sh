@@ -22,9 +22,10 @@ mkdir -p "$HF_HOME" "$OUTPUT_DIR" /opt/h3
 echo "[h3-entry] vol=$VOL cuda=$(command -v nvidia-smi || true)"
 nvidia-smi -L || true
 
-if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
   apt-get update
-  apt-get install -y --no-install-recommends ffmpeg git curl ca-certificates libgl1 libglib2.0-0
+  apt-get install -y --no-install-recommends \
+    build-essential ffmpeg git curl ca-certificates libgl1 libglib2.0-0
 fi
 
 APP_DIR=/opt/h3/app

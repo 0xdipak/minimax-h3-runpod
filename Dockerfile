@@ -11,7 +11,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     H3_EAGER_LOAD=1 \
     H3_MEMORY_MODE=auto
 
+# build-essential: triton JIT (pulled in via torchao/transformers) needs a C compiler at import/runtime.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
         ffmpeg \
         git \
         libglib2.0-0 \
