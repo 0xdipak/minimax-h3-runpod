@@ -225,7 +225,8 @@ def load_pipeline() -> Any:
                         "audio_proj_out",
                     ],
                 ),
-                low_cpu_mem_usage=False,
+                # Required True when quantization_config is set (TorchAo).
+                low_cpu_mem_usage=True,
             ),
             text_encoder=Qwen3VLForConditionalGeneration.from_pretrained(
                 model_path,
