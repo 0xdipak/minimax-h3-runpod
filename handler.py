@@ -22,6 +22,10 @@ from h3_pipeline import (
 from upload import UploadError, upload_video
 from upscale import UpscaleError, upscale_to_tiktok
 
+# Reduce CUDA allocator fragmentation during large component swaps.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+
 # Worker-process cold flag: True until first successful model load completes.
 _WORKER_STARTED_AT = time.perf_counter()
 _FIRST_REQUEST = True

@@ -170,7 +170,8 @@ def load_pipeline() -> Any:
 
     model_path = resolve_model_path()
     memory_mode = detect_memory_mode()
-    print(f"[h3] loading model from {model_path} mode={memory_mode}")
+    print(f"[h3] loading model from {model_path} mode={memory_mode}", flush=True)
+    print("[h3] stage=resolve_components (CPU/network; VRAM stays low until denoise)", flush=True)
 
     if memory_mode == "a100_bf16_offload":
         from diffusers import ComponentsManager
@@ -183,10 +184,12 @@ def load_pipeline() -> Any:
             model_path,
             components_manager=manager,
         )
+        print("[h3] stage=load_components t2va (download+deserialize; expect empty VRAM)", flush=True)
         pipe.load_components(workflow="t2va", dtype=torch.bfloat16)
+        print("[h3] stage=enable_auto_cpu_offload", flush=True)
         manager.enable_auto_cpu_offload(
             device="cuda",
-            memory_reserve_margin=os.environ.get("H3_MEMORY_RESERVE", "12GB"),
+            memory_reserve_margin=os.environ.get("H3_MEMORY_RESERVE", "48GB"),
         )
         _MANAGER = manager
         _PIPE = pipe
