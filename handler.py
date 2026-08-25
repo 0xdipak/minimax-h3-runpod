@@ -1,4 +1,4 @@
-"""Runpod Serverless handler for MiniMax H3 text-to-video-and-audio."""
+"""Runpod Serverless handler for MiniMax H3 ref2va (reference-image-guided video+audio)."""
 
 from __future__ import annotations
 
@@ -89,6 +89,12 @@ def _normalize_one(raw: dict[str, Any], index: int | None = None) -> dict[str, A
     if not prompt or not str(prompt).strip():
         raise ValueError("prompt is required and must be a non-empty string")
 
+    reference_image_url = raw.get("reference_image_url")
+    if not reference_image_url or not str(reference_image_url).strip():
+        raise ValueError(
+            "reference_image_url is required and must be a non-empty string (this worker only runs ref2va)"
+        )
+
     duration = float(raw.get("duration", 10))
     if duration < 4 or duration > 15:
         raise ValueError("duration must be between 4 and 15 seconds")
@@ -111,6 +117,7 @@ def _normalize_one(raw: dict[str, Any], index: int | None = None) -> dict[str, A
 
     return {
         "prompt": str(prompt).strip(),
+        "reference_image_url": str(reference_image_url).strip(),
         "duration": duration,
         "aspect_ratio": aspect_ratio,
         "resolution_preset": preset,
@@ -126,6 +133,7 @@ def _run_one(spec: dict[str, Any], *, worker_cold: bool, model_init_seconds: flo
 
     gen = generate(
         prompt=spec["prompt"],
+        reference_image_url=spec["reference_image_url"],
         duration=spec["duration"],
         aspect_ratio=spec["aspect_ratio"],
         resolution_preset=spec["resolution_preset"],

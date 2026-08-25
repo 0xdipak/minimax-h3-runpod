@@ -1,4 +1,9 @@
-"""MiniMax H3 load-once pipeline (diffusers ModularPipeline, t2va / FL2VA)."""
+"""MiniMax H3 load-once pipeline (diffusers ModularPipeline, ref2va).
+
+Loads the `ref2va` workflow only (transformer_ref/ checkpoint partition) —
+this worker exists solely for reference-guided generation, so t2va/fl2va
+support was dropped rather than kept alongside it.
+"""
 
 from __future__ import annotations
 
@@ -189,8 +194,8 @@ def load_pipeline() -> Any:
             model_path,
             components_manager=manager,
         )
-        print("[h3] stage=load_components t2va (download+deserialize; expect empty VRAM)", flush=True)
-        pipe.load_components(workflow="t2va", dtype=torch.bfloat16)
+        print("[h3] stage=load_components ref2va (download+deserialize; expect empty VRAM)", flush=True)
+        pipe.load_components(workflow="ref2va", dtype=torch.bfloat16)
         print("[h3] stage=enable_auto_cpu_offload", flush=True)
         manager.enable_auto_cpu_offload(
             device="cuda",
@@ -209,7 +214,9 @@ def load_pipeline() -> Any:
         pipe.update_components(
             transformer=MiniMaxH3Transformer3DModel.from_pretrained(
                 model_path,
-                subfolder="transformer",
+                # ref2va's checkpoint partition — NOT "transformer" (that's
+                # t2va/fl2va's). Same architecture, different learned weights.
+                subfolder="transformer_ref",
                 dtype=torch.bfloat16,
                 quantization_config=TorchAoConfig(
                     Int8WeightOnlyConfig(version=2),
@@ -243,7 +250,7 @@ def load_pipeline() -> Any:
                 ),
             ),
         )
-        pipe.load_components(workflow="t2va", dtype=torch.bfloat16)
+        pipe.load_components(workflow="ref2va", dtype=torch.bfloat16)
         pipe.transformer.requires_grad_(False)
         pipe.text_encoder.requires_grad_(False)
         # Streamed group-offload (use_stream=True) can roughly double host RAM
@@ -293,6 +300,7 @@ def load_pipeline() -> Any:
 def generate(
     *,
     prompt: str,
+    reference_image_url: str,
     duration: float = 10.0,
     aspect_ratio: str = "9:16",
     resolution_preset: str = "native",
@@ -302,9 +310,12 @@ def generate(
 ) -> GenerateResult:
     import torch
     from diffusers.utils.export_utils import encode_video
+    from diffusers.modular_pipelines.minimax_h3 import MiniMaxH3ImageReference
 
     if not prompt or not str(prompt).strip():
         raise PipelineError("prompt is required")
+    if not reference_image_url or not str(reference_image_url).strip():
+        raise PipelineError("reference_image_url is required for ref2va")
 
     pipe = load_pipeline()
     width, height = resolve_resolution(aspect_ratio, resolution_preset)
@@ -320,10 +331,12 @@ def generate(
 
     generator = torch.Generator(device="cpu").manual_seed(seed)
     outputs = ["videos", "audio", "sampling_rate"]
+    references = [MiniMaxH3ImageReference.from_file(reference_image_url)]
 
     t0 = time.perf_counter()
     results = pipe(
         prompt=prompt,
+        references=references,
         num_frames=num_frames,
         height=height,
         width=width,

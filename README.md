@@ -7,7 +7,7 @@ Submit an ad-hoc prompt, get a durable MP4 URL (TikTok 1080×1920 by default), w
 ## Architecture
 
 - Python 3.10+ / `runpod` SDK / `handler.py`
-- Official **diffusers ModularPipeline** `workflow="t2va"` (FL2VA text-to-video+audio)
+- Official **diffusers ModularPipeline** `workflow="ref2va"` (reference-image-guided video+audio; loads the `transformer_ref/` checkpoint partition, not `transformer/`)
 - Model loaded **once per worker lifecycle** (eager load at process start)
 - Flex workers, **scale-to-zero**, Queue endpoint
 - Burst = many independent `/run` jobs sharing a warm worker (native queue)
@@ -55,6 +55,7 @@ python -u handler.py  # picks up test_input.json when RUNPOD_LOCAL_TEST patterns
 {
   "input": {
     "prompt": "...",
+    "reference_image_url": "...",
     "duration": 10,
     "aspect_ratio": "9:16",
     "seed": 123,
@@ -67,6 +68,7 @@ python -u handler.py  # picks up test_input.json when RUNPOD_LOCAL_TEST patterns
 | Field | Required | Notes |
 |---|---|---|
 | `prompt` | yes | H3-style shot/audio description recommended |
+| `reference_image_url` | yes | Path or URL to the reference image (`ref2va` only — this worker doesn't run t2va/fl2va) |
 | `duration` | no | 4–15s; snapped to H3 `17n+5` frames @ 24fps |
 | `aspect_ratio` | no | `9:16` (default), `16:9`, `1:1` |
 | `seed` | no | int |
