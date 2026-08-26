@@ -1,5 +1,16 @@
 # Runtime pins for reproducible worker images.
 # Transitive pins are left flexible so they resolve against diffusers main.
+#
+# torch is pinned to the base image's own version (pytorch/pytorch:2.7.1-...)
+# so pip's resolver can never touch it. Root cause of a real failure: without
+# this pin, transformers==5.14.1 (or accelerate/torchao) apparently declares a
+# torch requirement the resolver "satisfies" by reinstalling torch — which
+# leaves the base image's CUDA-matched install broken (importlib.metadata
+# can no longer find its dist-info, so diffusers' is_torch_available() goes
+# False, which silently drops ModularPipeline and nearly everything else from
+# diffusers' import structure — surfaced downstream as a plain
+# "cannot import name 'ModularPipeline' from 'diffusers'").
+torch==2.7.1
 runpod==1.11.0
 boto3==1.43.66
 # torchao>=0.17 imports torch.nn.functional.ScalingType (PyTorch 2.8+/nightly).
