@@ -28,6 +28,13 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
+# Forced, isolated install: a combined resolve of this git ref alongside
+# transformers==5.14.1 (pinned above) was silently landing an older diffusers
+# with no ModularPipeline at runtime. --no-deps keeps it from touching the
+# already-resolved deps above; --force-reinstall guarantees it actually wins.
+RUN pip install --no-cache-dir --force-reinstall --no-deps \
+    "diffusers @ git+https://github.com/huggingface/diffusers.git@9c6a68c32b3b2a64db91800b624d33cec6e25ab8"
+
 COPY cost.py upload.py upscale.py h3_pipeline.py handler.py /app/
 COPY test_input.json /app/test_input.json
 
