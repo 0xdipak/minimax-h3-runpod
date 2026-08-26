@@ -247,6 +247,25 @@ def _debug_env() -> dict[str, Any]:
         info["diffusers___version__"] = getattr(diffusers, "__version__", "unknown")
         info["diffusers___file__"] = diffusers.__file__
         info["diffusers_dir_has_ModularPipeline"] = "ModularPipeline" in dir(diffusers)
+
+        diffusers_root = os.path.dirname(diffusers.__file__)
+        info["diffusers_root_listing"] = sorted(os.listdir(diffusers_root))
+        modular_dir = os.path.join(diffusers_root, "modular_pipelines")
+        info["modular_pipelines_dir_exists"] = os.path.isdir(modular_dir)
+        if os.path.isdir(modular_dir):
+            info["modular_pipelines_dir_listing"] = sorted(os.listdir(modular_dir))[:50]
+        info["has_minimax_h3_file"] = os.path.isfile(
+            os.path.join(modular_dir, "minimax_h3", "__init__.py")
+        ) or os.path.isfile(os.path.join(modular_dir, "minimax_h3.py"))
+
+        try:
+            import importlib.metadata as importlib_metadata
+
+            dist = importlib_metadata.distribution("diffusers")
+            direct_url_text = dist.read_text("direct_url.json")
+            info["diffusers_direct_url_json"] = direct_url_text
+        except Exception as exc:  # noqa: BLE001
+            info["diffusers_direct_url_error"] = f"{type(exc).__name__}: {exc}"
     except Exception as exc:  # noqa: BLE001
         info["diffusers_import_ok"] = False
         info["diffusers_import_error"] = f"{type(exc).__name__}: {exc}"
