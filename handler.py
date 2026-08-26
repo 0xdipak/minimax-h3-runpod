@@ -213,11 +213,78 @@ def _run_one(spec: dict[str, Any], *, worker_cold: bool, model_init_seconds: flo
     }
 
 
+def _debug_env() -> dict[str, Any]:
+    """One-off diagnostic path — bypasses generation entirely. Not part of
+    the real API; temporary aid for tracking down a diffusers import bug."""
+    info: dict[str, Any] = {}
+
+    try:
+        import importlib.metadata as importlib_metadata
+
+        for pkg in ("torch", "diffusers", "transformers", "accelerate", "torchao"):
+            try:
+                info[f"{pkg}_version"] = importlib_metadata.version(pkg)
+            except Exception as exc:  # noqa: BLE001
+                info[f"{pkg}_version"] = f"ERROR: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        info["importlib_metadata_error"] = str(exc)
+
+    try:
+        import torch
+
+        info["torch_import_ok"] = True
+        info["torch___version__"] = torch.__version__
+        info["torch___file__"] = torch.__file__
+        info["torch_cuda_available"] = torch.cuda.is_available()
+    except Exception as exc:  # noqa: BLE001
+        info["torch_import_ok"] = False
+        info["torch_import_error"] = f"{type(exc).__name__}: {exc}"
+
+    try:
+        import diffusers
+
+        info["diffusers_import_ok"] = True
+        info["diffusers___version__"] = getattr(diffusers, "__version__", "unknown")
+        info["diffusers___file__"] = diffusers.__file__
+        info["diffusers_dir_has_ModularPipeline"] = "ModularPipeline" in dir(diffusers)
+    except Exception as exc:  # noqa: BLE001
+        info["diffusers_import_ok"] = False
+        info["diffusers_import_error"] = f"{type(exc).__name__}: {exc}"
+
+    try:
+        from diffusers.utils import import_utils as diffusers_import_utils
+
+        info["diffusers_is_torch_available"] = diffusers_import_utils.is_torch_available()
+        info["diffusers_is_transformers_available"] = diffusers_import_utils.is_transformers_available()
+        info["USE_TORCH_env"] = os.environ.get("USE_TORCH", "<unset>")
+        info["USE_TF_env"] = os.environ.get("USE_TF", "<unset>")
+    except Exception as exc:  # noqa: BLE001
+        info["diffusers_import_utils_error"] = f"{type(exc).__name__}: {exc}"
+
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["pip", "show", "torch", "diffusers"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        info["pip_show_torch_diffusers"] = result.stdout
+        info["pip_show_stderr"] = result.stderr
+    except Exception as exc:  # noqa: BLE001
+        info["pip_show_error"] = f"{type(exc).__name__}: {exc}"
+
+    return info
+
+
 def handler(job: dict[str, Any]) -> dict[str, Any]:
     global _FIRST_REQUEST, _MODEL_INIT_AT_LOAD
 
     try:
         job_input = job.get("input") or {}
+        if job_input.get("_debug") == "env":
+            return _debug_env()
         specs = _validate_and_normalize(job_input)
 
         worker_cold = _FIRST_REQUEST
