@@ -266,6 +266,39 @@ def _debug_env() -> dict[str, Any]:
             info["diffusers_direct_url_json"] = direct_url_text
         except Exception as exc:  # noqa: BLE001
             info["diffusers_direct_url_error"] = f"{type(exc).__name__}: {exc}"
+
+        # dir(diffusers) is unreliable for a _LazyModule — it only reflects
+        # attributes already materialized, not everything registered in
+        # _import_structure. Test the real failing statement directly, and
+        # also bypass the lazy top-level module to see the raw submodule
+        # error the lazy loader may be swallowing/re-wording.
+        import traceback as tb_mod
+
+        try:
+            from diffusers import ModularPipeline as _MP  # noqa: F401
+
+            info["direct_top_level_import_ok"] = True
+        except Exception as exc:  # noqa: BLE001
+            info["direct_top_level_import_ok"] = False
+            info["direct_top_level_import_traceback"] = tb_mod.format_exc()
+
+        try:
+            import diffusers.modular_pipelines as mp_pkg
+
+            info["submodule_import_ok"] = True
+            info["submodule_has_ModularPipeline"] = hasattr(mp_pkg, "ModularPipeline")
+            info["submodule_dir_sample"] = [n for n in dir(mp_pkg) if not n.startswith("_")][:40]
+        except Exception as exc:  # noqa: BLE001
+            info["submodule_import_ok"] = False
+            info["submodule_import_traceback"] = tb_mod.format_exc()
+
+        try:
+            from diffusers.modular_pipelines.modular_pipeline import ModularPipeline as _MP2  # noqa: F401
+
+            info["deep_module_import_ok"] = True
+        except Exception as exc:  # noqa: BLE001
+            info["deep_module_import_ok"] = False
+            info["deep_module_import_traceback"] = tb_mod.format_exc()
     except Exception as exc:  # noqa: BLE001
         info["diffusers_import_ok"] = False
         info["diffusers_import_error"] = f"{type(exc).__name__}: {exc}"
