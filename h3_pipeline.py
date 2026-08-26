@@ -8,6 +8,7 @@ support was dropped rather than kept alongside it.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,6 +19,15 @@ MODEL_INIT_SECONDS: float = 0.0
 MODEL_LOADED: bool = False
 _PIPE = None
 _MANAGER = None
+
+# H3_EAGER_LOAD spawns a background thread that calls load_pipeline() at
+# worker startup; if a real job arrives before that finishes, the handler
+# thread calls load_pipeline() too. Without this lock both threads can enter
+# the loading body concurrently — including a bare `from diffusers import
+# ModularPipeline` from two threads at once — which intermittently raised
+# ImportError: cannot import name 'ModularPipeline' from 'diffusers' on some
+# workers but not others, depending on scheduling luck.
+_LOAD_LOCK = threading.Lock()
 
 
 RESOLUTION_PRESETS: dict[str, dict[str, int]] = {
@@ -168,10 +178,21 @@ def _try_set_attention_backend(pipe: Any) -> str:
 
 
 def load_pipeline() -> Any:
-    """Load H3 once for the worker lifecycle."""
-    global _PIPE, _MANAGER, MODEL_INIT_SECONDS, MODEL_LOADED
+    """Load H3 once for the worker lifecycle. Thread-safe: the background
+    eager-load thread and the handler thread can both call this on a cold
+    worker, and only one of them may actually run the loading body."""
     if MODEL_LOADED and _PIPE is not None:
         return _PIPE
+    with _LOAD_LOCK:
+        # Re-check: another thread may have finished loading while we
+        # waited for the lock.
+        if MODEL_LOADED and _PIPE is not None:
+            return _PIPE
+        return _load_pipeline_locked()
+
+
+def _load_pipeline_locked() -> Any:
+    global _PIPE, _MANAGER, MODEL_INIT_SECONDS, MODEL_LOADED
 
     t0 = time.perf_counter()
     import torch
